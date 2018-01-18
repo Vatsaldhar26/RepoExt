@@ -6,28 +6,31 @@ import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.*;
+import org.apache.commons.lang3.StringUtils;
 
-public class Main extends Thread{
+public class Main extends Thread {
 
-  public static HashMap<String, ArrayList<UserRepos>> finalData;
+  //public static HashMap<String, ArrayList<UserRepos>> finalData;
   public static HashMap<String, ModelFileClass1> map1 = null;
   public static HashMap<String, ModelFileClass2> map2 = null;
 
-  public void run(){
+  public void run() {
 
     ArrayList<String> user = new ArrayList<String>();
     map1 = CSVExtraction.readFile1();
     map2 = CSVExtraction.readFile2(user);
 
-    ArrayList<String> userName = new ArrayList<String>(user.subList(0, 10));
+    initailizeCSV(map1, map2);
 
-    finalData = new HashMap<String, ArrayList<UserRepos>>();
+    ArrayList<String> userName = new ArrayList<String>(user.subList(0, 5));
+
+    //finalData = new HashMap<String, ArrayList<UserRepos>>();
     repoExtractor(userName);
-    writeToCSV(map1,map2,finalData);
+    //writeToCSV(map1,map2,finalData);
 
   }
 
-  private static final String MESSAGE="ConnectAgain";
+  //private static final String MESSAGE="ConnectAgain";
 
   public static void main(String[] args) {
 
@@ -39,14 +42,27 @@ public class Main extends Thread{
 
   private static void repoExtractor(ArrayList<String> userName) {
 
-    UserRepos[] uR = new UserRepos[0];
+    UserRepos[] uR;
 
     int cnt = 0;
-    for(String str:userName) {
-      System.out.println("user: " + cnt++);
+
+    for (String str : userName) {
+
+      //HashMap<String, ArrayList<UserRepos>> finalData = new HashMap<String, ArrayList<UserRepos>>();
+      System.out.println("user Num: " + cnt++);
       System.out.println("UserID: " + str);
       uR = getUserRepo(str);
-      finalData.put(str, new ArrayList<UserRepos>(Arrays.asList(uR)));
+      //finalData.put(str, new ArrayList<UserRepos>(Arrays.asList(uR)));
+      writeOneUserToCSV(map1, map2, str, uR);
+      System.out.println("Data Written");
+
+      System.out.println("**Sleep**\n");
+      try {
+        Thread.sleep(1000);
+      } catch (InterruptedException e) {
+        e.printStackTrace();
+      }
+
     }
 
   }
@@ -56,40 +72,20 @@ public class Main extends Thread{
 
     String sURL = "https://api.github.com/users/" + username + "/repos";
 
-    ObjectMapper omR = new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+    ObjectMapper omR = new ObjectMapper()
+        .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
     UserRepos[] uR = new UserRepos[0];
 
-    int tryAgain = 0;
-
     try {
-      String dataFetched=null;
-      dataFetched = JsonString(sURL);
-      while(dataFetched==MESSAGE && tryAgain<3) {
-        dataFetched=JsonString(sURL);
-        tryAgain++;
+
+      String json = JsonString(sURL);
+      if (StringUtils.isBlank(json)) {
+        return uR;
       }
 
-      uR = omR.readValue( dataFetched , UserRepos[].class);
-    }
-    catch (Exception e) {
+      uR = omR.readValue(json, UserRepos[].class);
+    } catch (IOException e) {
       e.printStackTrace();
-      writeToCSV(map1,map2,finalData);
-    }
-    tryAgain=0;
-    System.out.println("**Sleep**\n");
-    try {
-      Thread.sleep(1000);
-    } catch (InterruptedException e) {
-      e.printStackTrace();
-      writeToCSV(map1,map2,finalData);
-    }
-    System.out.println("Repositories: ");
-
-    String repo;
-
-    for(UserRepos temp: uR) {
-      System.out.println("Repo_name: " + temp.getName());
-      System.out.println("Repo_Url: " + temp.getUrl() );
     }
     return uR;
   }
@@ -98,14 +94,13 @@ public class Main extends Thread{
   private static String JsonString(String url) {
 
     String repos = null;
-    int flag=0;
+
     try {
       URL obj = new URL(url);
       HttpURLConnection con = (HttpURLConnection) obj.openConnection();
-      con.setConnectTimeout(8000);
+      con.setConnectTimeout(2000);
 
       int responseCode = con.getResponseCode();
-      //System.out.println(responseCode);
 
       if (responseCode == HttpURLConnection.HTTP_OK) { //successful connection
 
@@ -118,60 +113,91 @@ public class Main extends Thread{
         }
 
         in.close();
-
         repos = response.toString();
+
       } else {
-        System.out.print(".");
-        return MESSAGE;
+        System.out.println("Connection Unsuccessful");
+        System.out.println("Sleep");
+        Thread.sleep(5000);
       }
-    }
-    catch (Exception e) {
-      flag=1;
+    } catch (Exception e) {
       e.printStackTrace();
-      writeToCSV(map1,map2,finalData);
     }
 
-    if(flag==1)
-      return MESSAGE;
-    else
-      return repos;
+    return repos;
+
   }
 
+  private static void initailizeCSV(HashMap<String, ModelFileClass1> map1,
+      HashMap<String, ModelFileClass2> map2) {
+    String csv = "finaldata.csv";
+    CSVWriter writer = null;
 
-  private static void writeToCSV(HashMap<String, ModelFileClass1> map1, HashMap<String, ModelFileClass2> map2, HashMap<String,ArrayList<UserRepos>> finalData)
-  {
+    try {
+      writer = new CSVWriter(new FileWriter(csv, false));
+      String heading = "BOlogin,empid,boempid,reponame,repourl,description,language,fork,giturl,sshurl,cloneurl,size,createdate,updatedate";
+      writer.writeNext(heading.split(","));
+      writer.close();
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+  }
+
+//  private static void writeToCSV(HashMap<String, ModelFileClass1> map1, HashMap<String, ModelFileClass2> map2, HashMap<String,ArrayList<UserRepos>> finalData)
+//  {
+//    String csv = "finaldata.csv";
+//    CSVWriter writer = null;
+//    try {
+//
+//      writer = new CSVWriter(new FileWriter(csv, true));
+//
+//      for (Map.Entry<String, ModelFileClass1> entry : map1.entrySet()) {
+//        String key = entry.getKey();
+//        ModelFileClass1 value = entry.getValue();
+//
+//
+//        String finalKey = map2.get(key).getGitUserName();
+//
+//        if(finalData.keySet().contains(finalKey))
+//        {
+//          ArrayList<UserRepos> userRepos = finalData.get(finalKey);
+//          for(UserRepos rep : userRepos){
+//
+//            String result = value.toString() + "," + rep.toString();
+//            writer.writeNext(result.split(","));
+//          }
+//        }
+//        else {
+//          String result = value.toString() + ",,,,,,,,";
+//          writer.writeNext(result.split(","));
+//        }
+//      }
+//      writer.close();
+//    }catch (IOException e){
+//      e.printStackTrace();
+//    }
+//  }
+
+  private static void writeOneUserToCSV(HashMap<String, ModelFileClass1> map1,
+      HashMap<String, ModelFileClass2> map2, String userId, UserRepos[] uR) {
     String csv = "finaldata.csv";
     CSVWriter writer = null;
     try {
-      writer = new CSVWriter(new FileWriter(csv, false));
-      String heading = "bologin,empid,boempid,reponame,repourl,description,language,fork,giturl,sshurl,cloneurl,size,createdate,updatedate";
-      writer.writeNext(heading.split(","));
 
+      writer = new CSVWriter(new FileWriter(csv, true));
 
-      for (Map.Entry<String, ModelFileClass1> entry : map1.entrySet()) {
-        String key = entry.getKey();
-        ModelFileClass1 value = entry.getValue();
+      String key1 = map2.get(userId).getBoLogin();
 
-
-        String finalKey = map2.get(key).getGitUserName();
-
-        if(finalData.keySet().contains(finalKey))
-        {
-          ArrayList<UserRepos> userRepos = finalData.get(finalKey);
-          for(UserRepos rep : userRepos){
-
-            String result = value.toString() + "," + rep.toString();
-            writer.writeNext(result.split(","));
-          }
-        }
-        else {
-          String result = value.toString() + ",,,,,,,,";
-          writer.writeNext(result.split(","));
-        }
+      for (UserRepos u : uR) {
+        String result = map1.get(key1).toString() + "," + u.toString();
+        writer.writeNext(result.split(","));
       }
       writer.close();
-    }catch (IOException e){
+
+    } catch (IOException e) {
       e.printStackTrace();
     }
+
   }
+
 }

@@ -57,14 +57,15 @@ public class CSVExtraction {
 
       while ((record = reader.readNext()) != null) {
 
+        if( record[1].equals(""))
+          continue;
         ModelFileClass2 f2 = new ModelFileClass2();
         f2.setBoLogin(record[0]);
         f2.setGitUserName(record[1]);
         f2.setGitUserProfile(record[2]);
-        map.put(record[0], f2);
-        if(!record[1].equals("")) {
-          userNameList.add(record[1]);
-        }
+        map.put(record[1], f2);
+        userNameList.add(record[1]);
+
       }
       reader.close();
 
