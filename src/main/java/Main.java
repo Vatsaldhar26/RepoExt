@@ -27,7 +27,6 @@ public class Main extends Thread{
 
   }
 
-  private static final String MESSAGE="ConnectAgain";
 
   public static void main(String[] args) {
 
@@ -64,21 +63,19 @@ public class Main extends Thread{
     try {
       String dataFetched=null;
       dataFetched = JsonString(sURL);
-      while(dataFetched==MESSAGE && tryAgain<3) {
+      while(dataFetched==null && tryAgain<3) {
         dataFetched=JsonString(sURL);
         tryAgain++;
       }
-
       uR = omR.readValue( dataFetched , UserRepos[].class);
     }
     catch (Exception e) {
       e.printStackTrace();
       writeToCSV(map1,map2,finalData);
     }
-    tryAgain=0;
     System.out.println("**Sleep**\n");
     try {
-      Thread.sleep(1000);
+      Thread.sleep(60000);
     } catch (InterruptedException e) {
       e.printStackTrace();
       writeToCSV(map1,map2,finalData);
@@ -98,14 +95,18 @@ public class Main extends Thread{
   private static String JsonString(String url) {
 
     String repos = null;
-    int flag=0;
     try {
       URL obj = new URL(url);
       HttpURLConnection con = (HttpURLConnection) obj.openConnection();
-      con.setConnectTimeout(8000);
+      con.setConnectTimeout(2000);
+        int responseCode = 0;
+      try {
+          responseCode = con.getResponseCode();
+      }catch (Exception e){
+          writeToCSV(map1,map2,finalData);
+      }
 
-      int responseCode = con.getResponseCode();
-      //System.out.println(responseCode);
+//      System.out.println("Code is: "+responseCode);
 
       if (responseCode == HttpURLConnection.HTTP_OK) { //successful connection
 
@@ -122,19 +123,14 @@ public class Main extends Thread{
         repos = response.toString();
       } else {
         System.out.print(".");
-        return MESSAGE;
+        return null;
       }
     }
     catch (Exception e) {
-      flag=1;
       e.printStackTrace();
       writeToCSV(map1,map2,finalData);
     }
-
-    if(flag==1)
-      return MESSAGE;
-    else
-      return repos;
+  return repos;
   }
 
 
@@ -173,5 +169,6 @@ public class Main extends Thread{
     }catch (IOException e){
       e.printStackTrace();
     }
+    System.exit(0);
   }
 }
